@@ -1,36 +1,42 @@
-node {
-    
-	
+try {
+    node("master") {
 
-    env.AWS_ECR_LOGIN=true
-    def newApp
-    def registry = 'gustavoapolinario/microservices-node-todo-frontend'
-    def registryCredential = 'dockerhub'
-	
-	stage('Git') {
-		git 'https://github.com/gustavoapolinario/node-todo-frontend'
-	}
-	stage('Build') {
-		sh 'npm install'
-	}
-	stage('Test') {
-		sh 'npm test'
-	}
-	stage('Building image') {
-        docker.withRegistry( 'https://' + registry, registryCredential ) {
-		    def buildName = registry + ":$BUILD_NUMBER"
-			newApp = docker.build buildName
-			newApp.push()
-        }
-	}
-	stage('Registring image') {
-        docker.withRegistry( 'https://' + registry, registryCredential ) {
-    		newApp.push 'latest2'
-        }
-	}
-    stage('Removing image') {
-        sh "docker rmi $registry:$BUILD_NUMBER"
-        sh "docker rmi $registry:latest"
+    stage("Clone Node App") {
+    git 'https://github.com/hdhruna/node-todo-frontend.git'
+    currentBuild.result = 'SUCCESS'
     }
-    
+    stage("Build Node App") {
+    sh "npm install"
+    currentBuild.result = 'SUCCESS'
+    }
+    stage("Test Node App") {
+    sh "npm test"
+    currentBuild.result = 'SUCCESS'
+    }
+    }
+} catch (Exception err) {
+    currentBuild.result = 'FAILURE'
+}
+echo "Current build status : ${currentBuild.result}"
+if (currentBuild.result == "FAILURE") {
+    stage("Create Jira Bug") {
+    def issue = [fields: [project: [key: 'TES'],
+    summary: 'Build error',
+    description: 'Build error',
+    issuetype: [name: 'Bug']
+    ]]
+    def newIssue = jiraNewIssue issue: issue, site: 'Test Jira'
+    echo newIssue.data.key
+    }
+
+} else {
+    stage("Create Jira Task") {
+    def issue = [fields: [project: [key: 'TES'],
+    summary: 'Build successful',
+    description: 'Build successful',
+    issuetype: [name: 'Task']
+    ]]
+    def newIssue = jiraNewIssue issue: issue, site: 'Test Jira'
+    echo newIssue.data.key
+    }
 }
